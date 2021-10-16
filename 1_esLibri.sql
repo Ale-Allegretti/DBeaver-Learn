@@ -99,7 +99,7 @@ JOIN libri l ON (p.codicelibro = l.codice)
 WHERE p.data_out > '04/01/2020';
 
 
--- selezione di chi ha preso più di due libri nel 2021
+-- selezione di chi ha preso più di un libro nel 2021
 SELECT u.nome, u.cognome, u.telefono
 FROM utenti u
 JOIN prestiti p ON (u.tessera = p.tessera)
