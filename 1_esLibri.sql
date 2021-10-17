@@ -99,7 +99,8 @@ JOIN libri l ON (p.codicelibro = l.codice)
 WHERE p.data_out > '04/01/2020';
 
 
--- selezione di chi ha preso più di un libro nel 2021
+-- selezione di chi ha preso più di due libri nel 2021
+-- escludendo chi ne ha preso nessuno o solo uno
 SELECT u.nome, u.cognome, u.telefono
 FROM utenti u
 JOIN prestiti p ON (u.tessera = p.tessera)
@@ -107,6 +108,17 @@ WHERE YEAR(p.data_out) = 2021
 EXCEPT ALL
 SELECT u2.nome, u2.cognome, u2.telefono
 FROM utenti u2;
+-- oppure con un self-join: stesso anno, stesso utente, ma libri diversi
+SELECT u.nome, u.cognome, u.telefono
+FROM utenti u
+JOIN (SELECT DISTINCT p1.tessera
+FROM prestiti p1, prestiti P2
+WHERE YEAR(p1.data_out) = 2021
+AND YEAR(p2.data_out) = 2021
+AND p1.tessera = p2.tessera
+AND p1.codicelibro <> p2.codicelibro) p 
+ON (u.tessera = p.tessera);
+
 
 -- selezione di chi non ha preso nessun libro nel 2021
 SELECT u2.nome, u2.cognome, u2.telefono
@@ -116,8 +128,14 @@ SELECT u.nome, u.cognome, u.telefono
 FROM utenti u
 JOIN prestiti p ON (u.tessera = p.tessera)
 WHERE YEAR(p.data_out) = 2021;
+-- oppure con outer join selezionando chi ha codice libro = null
+SELECT p.codicelibro, u.nome, u.cognome, u.telefono
+FROM utenti u
+LEFT JOIN prestiti p ON (u.tessera = p.tessera) AND YEAR(p.data_out) = 2021
+WHERE p.codicelibro IS NULL;
 
---selezione di chi non hanno mai preso in prestito un libro senza autori e che nei commenti include la parolla bell*
+
+--selezione di chi non ha mai preso in prestito un libro senza autori e che nei commenti include la parolla bell*
 SELECT l.titolo, l.note, u.nome, u.cognome, u.telefono
 FROM utenti u
 JOIN prestiti p ON (u.tessera = p.tessera)
