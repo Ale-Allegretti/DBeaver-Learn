@@ -1,4 +1,5 @@
 
+  
 CREATE TABLE "MODELLI" (
 	modello varchar(100) NOT NULL,
 	marca VARCHAR(100) NOT NULL,
@@ -66,19 +67,19 @@ FROM AUTO a
 JOIN MODELLI m ON (a.modello = m.modello)
 JOIN RIVENDITORI r ON (a.codR = r.codR)
 WHERE r.citta = 'Bologna'
+AND m.marca = 'Maserati'
 AND a.prezzoVendita < (m.prezzoListino*0.7)
 AND a.venduta IS NULL;
 
 
 -- Q2) prezzo medio di un auto a benzina con cilindrata (cc) < 1000, almeno 5 anni di vita e meno di 80000 Km
-SELECT AVG(a.prezzoVendita) AS PrezzoMedio, m.modello, m.marca, m.cilindrata, a.kM, a.anno
+SELECT AVG(a.prezzoVendita) AS PrezzoMedio
 FROM AUTO a
 JOIN MODELLI m ON (a.modello = m.modello)
-JOIN RIVENDITORI r ON (a.codR = r.codR)
 WHERE m.cilindrata < 1000
-AND a.anno <= 2016
+AND m.alimentazione = 'Benzina'
 AND a.kM < 80000
-GROUP BY m.modello, m.marca, m.cilindrata, a.kM, a.anno;
+AND YEAR(CURRENT DATE) - a.anno >= 5;
 
 
 -- Q3) il prezzo più basso a Bologna per ogni modello con velocità massima > 180 Km/h
@@ -92,7 +93,8 @@ GROUP BY m.modello, m.marca, m.velMax, r.citta;
 
 
 -- Q4) numero di auto complessivamente trattate e vendute in ogni città
-SELECT r.citta, COUNT(*) AS numAuto_tot
+-- in questo caso COUNT(a.venduta) conta solo quelle non null, quindi quelle vendute = 'SI'
+SELECT r.citta, COUNT(*) AS numAuto_tot, COUNT(a.venduta) AS num_vendute
 FROM AUTO a
 JOIN MODELLI m ON (a.modello = m.modello)
 JOIN RIVENDITORI r ON (a.codR = r.codR)
@@ -105,17 +107,24 @@ SELECT r.codR, r.citta
 FROM AUTO a
 JOIN RIVENDITORI r ON (a.codR = r.codR)
 GROUP BY r.codR, r.citta
-HAVING (COUNT(a.targa) - COUNT(a.venduta)) > (COUNT(a.targa) * 0.2);
+HAVING COUNT(a.venduta) <= (COUNT(a.targa) * 0.8);
 
 
 -- Q6) rivenditori che hanno disponibili auto di modelli mai venduti prima da loro
-SELECT DISTINCT a1.codr, a1.modello, a1.venduta 
-FROM auto a1
-LEFT JOIN (
-SELECT a2.codr, a2.modello
-FROM auto a2
-WHERE a2.venduta IS NULL) a3
-ON (a1.modello = a3.modello);
+SELECT a.codr, a.modello 
+FROM auto a
+GROUP BY a.codr, a.modello
+HAVING COUNT(a.venduta) = 0; 
+-- conterà le vendute di quel modello per quel rivenditore
+-- e se è zero ne ha almeno una, ma non l'ha venduta
+
+-- alternativa con la differenza:
+SELECT a.codr, a.modello 
+FROM auto a
+EXCEPT 
+SELECT a.codr, a.modello 
+FROM auto a
+WHERE a.venduta IS NOT NULL;
 
 
 -- Q7) il numero di auto vendute, solo se il prezzo medio di tali auto risulta < 120000 Euro per ogni rivenditore
@@ -127,14 +136,13 @@ GROUP BY a.modello, a.codr
 HAVING AVG(a.prezzovendita) < 120000;
 
 
--- Q8) per ogni auto A, il numero di auto vendute a un prezzo minore di quello di A
-SELECT COUNT(a1.venduta) AS vendute_min, a1.modello, a1.prezzovendita
-FROM auto a1
-JOIN auto a2 ON (a1.modello = a2.modello)
-WHERE a1.venduta IS NOT NULL
-AND a2.venduta IS NOT NULL
-AND a1.prezzovendita < a2.prezzovendita
-GROUP BY a1.modello, a1.prezzovendita;
+-- Q8) per ogni singola auto, il numero di auto vendute a un prezzo minore di quello di quella selezionata
+-- ce ne possono essere anche di più ma non sono vendute
+SELECT 	A1.TARGA, COUNT(A2.TARGA) AS NUM_PREZZOMINORE
+FROM 	AUTO A1 LEFT JOIN AUTO A2 ON (A1.PREZZOVENDITA > A2.PREZZOVENDITA) 
+								 AND (A2.VENDUTA = 'SI')
+GROUP BY A1.TARGA
+ORDER BY NUM_PREZZOMINORE DESC;
 
 
 -- Q9) per ogni anno e ogni modello, il rapporto medio tra prezzo di vendita e prezzo di listino, 
