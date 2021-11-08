@@ -10,7 +10,7 @@ FROM (
 	
 
 -- Q2) I dati dei dipendenti che lavorano in un dipartimento con almeno 7 dipendenti 
-SELECT *
+SELECT e.*
 FROM EMPLOYEE e
 WHERE e.WORKDEPT IN (
 		SELECT d.deptno
@@ -60,9 +60,9 @@ SELECT	D.*
 FROM 	DEPARTMENT D
 WHERE 	NOT EXISTS 
 	     (	SELECT 	*
-		FROM 	EMPLOYEE E
-		WHERE 	E.WORKDEPT = D.DEPTNO
-		AND 	E.LASTNAME LIKE 'L%'  )	;
+			FROM 	EMPLOYEE E
+			WHERE 	E.WORKDEPT = D.DEPTNO
+			AND 	E.LASTNAME LIKE 'L%'  )	;
 					  	
 			
 -- Q7) I dipartimenti e il rispettivo massimo stipendio per tutti i dipartimenti aventi un salario
@@ -72,7 +72,8 @@ FROM DEPARTMENT d, EMPLOYEE e
 WHERE d.deptno = e.WORKDEPT
 GROUP BY d.DEPTNO, d.DEPTNAME
 HAVING AVG(e.SALARY) <     (SELECT AVG(e1.salary) 
-							FROM EMPLOYEE e1)  ;
+							FROM EMPLOYEE e1	
+							e1.WORKDEPT <> e.WORKDEPT)  ;
 						
 						
 -- Q8) Per ogni dipartimento determinare lo stipendio medio per ogni lavoro per il quale il

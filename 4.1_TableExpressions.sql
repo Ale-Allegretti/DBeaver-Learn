@@ -1,0 +1,141 @@
+-- Table Expressions
+
+-- Senza C.T.E. non funziona
+SELECT DEPTSAL.*
+FROM (	SELECT WORKDEPT,SUM(SALARY)
+		FROM   EMPLOYEE
+		GROUP BY WORKDEPT ) AS DEPTSAL(DEPT,TOTSAL)
+WHERE TOTSAL = ( SELECT MAX(TOTSAL)
+		 		 FROM 	DEPTSAL) ;
+
+-- con C.T.E. (Common Table Expression)
+WITH DEPTSAL(DEPT,TOTSAL)
+AS (	SELECT WORKDEPT,SUM(SALARY)
+		FROM   EMPLOYEE
+		GROUP BY WORKDEPT )
+SELECT DEPTSAL.*
+FROM DEPTSAL 
+WHERE TOTSAL = ( SELECT MAX(TOTSAL) -- o >= ALL
+		 		 FROM 	DEPTSAL) ;
+
+-- ESERCITAZIONE 3: Q3)
+--  I dati del dipartimento con il maggior numero di dipendenti
+SELECT	D.*
+FROM	DEPARTMENT D
+WHERE	D.DEPTNO IN
+	     ( 	SELECT	E.WORKDEPT
+			FROM 	EMPLOYEE E
+			GROUP BY E.WORKDEPT
+			HAVING 	 COUNT(*) >= ALL 
+			    (	SELECT COUNT(*)
+					FROM EMPLOYEE E1
+					GROUP BY E1.WORKDEPT  ) )	; 
+
+-- con C.T.E. 
+WITH NUMEMPDEPT(DEPT,NUMEMP)
+AS (	SELECT WORKDEPT,COUNT(*)
+		FROM   EMPLOYEE
+		GROUP BY WORKDEPT )
+SELECT 	D.*
+FROM   	DEPARTMENT D, NUMEMPDEPT N 
+WHERE  	D.DEPTNO = N.DEPT
+AND		N.NUMEMP = ( SELECT MAX(N1.NUMEMP)
+		 		   	 FROM	NUMEMPDEPT N1) ;
+		 		   	 
+
+-- ESERCITAZIONE 3: Q7)	
+--  I dipartimenti e il rispettivo massimo stipendio  per tutti i dipartimenti 
+--	aventi un salario medio minore del salario medio calcolato considerando 
+--	i dipendenti di tutti gli altri dipartimenti
+--
+SELECT E.WORKDEPT, MAX(E.SALARY) AS MAX_SALARY
+FROM EMPLOYEE E
+GROUP BY E.WORKDEPT
+HAVING AVG(E.SALARY) < (
+	SELECT 	AVG(E1.SALARY)
+	FROM 	EMPLOYEE E1
+	WHERE 	E1.WORKDEPT <> E.WORKDEPT	);
+
+-- LA MEDIA IN OUTPUT ANZICHE' IL MASSIMO:
+SELECT E.WORKDEPT, CAST(AVG(E.SALARY) AS DEC(9,2)) AS AVG_SALARY
+FROM EMPLOYEE E
+GROUP BY E.WORKDEPT
+HAVING AVG(E.SALARY) < (
+	SELECT 	AVG(E1.SALARY)
+	FROM 	EMPLOYEE E1
+	WHERE 	E1.WORKDEPT <> E.WORKDEPT	);
+
+
+-- NUOVA QUERY:
+-- PER OGNI DIPARTIMENTO, LA MEDIA DEGLI STIPENDI
+-- E QUELLA DI TUTTI GLI ALTRI (ESCLUDENDO CIOE' SE STESSO)
+
+-- Idea: C.T.E. con i totali, da cui ricavare info su tutti gli altri
+-- rimuovendo le quantità del dipartimento corrente
+
+WITH TOT(TOTSAL,NUMEMP)
+AS (	SELECT SUM(SALARY), COUNT(*)
+		FROM EMPLOYEE )
+SELECT 	E.WORKDEPT, 
+		CAST(AVG(E.SALARY) AS DEC(9,2)) AS MYAVGSAL,	
+		CAST((TOTSAL-SUM(E.SALARY))/(NUMEMP-COUNT(*)) AS DEC(9,2)) AS OTHERSAVGSAL 
+FROM 	EMPLOYEE E, TOT
+GROUP BY E.WORKDEPT,TOTSAL,NUMEMP
+ORDER BY MYAVGSAL DESC;
+
+-- Se si vuole il COUNT degli impiegati del dipartimento e di tutti gli altri,
+-- la C.T.E. non serve, ma occorre eliminare i duplicati
+SELECT E1.WORKDEPT, 
+	COUNT(DISTINCT E1.EMPNO) AS MYEMP,	
+	COUNT(DISTINCT E2.EMPNO) AS OTHEREMP	
+FROM EMPLOYEE E1, EMPLOYEE E2
+WHERE E1.WORKDEPT <> E2.WORKDEPT
+GROUP BY E1.WORKDEPT;
+
+-- In alternativa, si calcola il numero totale di impiegati e si sottraggono quelli
+-- del dipartimento in esame.
+-- Si usano 2 table expressions, la seconda correlata alla prima
+SELECT EMP1.WORKDEPT, MYEMP, OTHEREMP
+FROM   (SELECT  E1.WORKDEPT, COUNT(*) AS MYEMP
+		FROM	EMPLOYEE E1
+		GROUP BY E1.WORKDEPT) AS EMP1(WORKDEPT,MYEMP), 
+	 TABLE
+	   (SELECT  COUNT(*) AS OTHEREMP
+		FROM	EMPLOYEE E2
+		WHERE   E2.WORKDEPT <> EMP1.WORKDEPT); 
+	
+-- come sopra, la t.e. correlata esegue il join
+SELECT D.DEPTNO, D.DEPTNAME, X.EMPNO
+FROM   DEPARTMENT D, TABLE( SELECT E.EMPNO
+							FROM EMPLOYEE E
+							WHERE E.WORKDEPT = D.DEPTNO
+						  ) AS X(EMPNO)
+ORDER BY D.DEPTNO;
+
+-- ma con f. aggregate diventa un (left) outer join (!?)
+SELECT D.DEPTNO, D.DEPTNAME, X.NUMEMP, X.TOTSAL
+FROM   DEPARTMENT D, TABLE( SELECT COUNT(*), SUM(SALARY)
+							FROM EMPLOYEE E
+							WHERE E.WORKDEPT = D.DEPTNO
+						  ) AS X(NUMEMP,TOTSAL);
+			
+-- ma non se si aggrega sulla table non correlata (!?)						  
+SELECT Y.DEPTNO, Y.DEPTNAME, X.NUMEMP, X.TOTSAL
+FROM   ( SELECT E.WORKDEPT, COUNT(*), SUM(SALARY)
+		 FROM EMPLOYEE E
+		 GROUP BY E.WORKDEPT) AS X(WORKDEPT,NUMEMP,TOTSAL),
+	TABLE 
+	    (SELECT D.DEPTNO, D.DEPTNAME 
+	     FROM DEPARTMENT D
+	     WHERE X.WORKDEPT = D.DEPTNO
+		) AS Y(DEPTNO,DEPTNAME);
+
+
+
+
+
+
+
+
+
+
